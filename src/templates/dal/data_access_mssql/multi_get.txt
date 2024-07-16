@@ -1,0 +1,11 @@
+{{ define "MultiGet" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .EntityName }}DAL> {{ .DALName }}(IEnumerable<{{ .IDProperty.Type | toJson }}> ids)
+    {
+        return _Database.MultiGet(
+            "{{ .Table }}_{{ .StoredProcedure }}",
+            ids,
+            BuildDAL
+        );
+    }
+{{ end }}

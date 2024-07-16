@@ -1,0 +1,49 @@
+{{ define "Lookup" }}
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_{{ .StoredProcedure }}]') AND type in (N'P', N'PC'))
+BEGIN
+	EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}]
+(
+    {{ range $i, $param := .Parameters }}
+    {{ if or (eq .SqlDbType VarChar) (eq .SqlDbType NVarChar) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ else if eq .SqlDbType Binary }}
+    {{ if not (deref .IsVarBinary) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ .Length }}){{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ else }}
+    @{{ .Name | toPascalCase }} [varbinary]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ end }}
+    {{ else }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]{{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ end }}
+    {{ end }}
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+SELECT
+    [{{ .IDProperty.Name }}]
+{{ range $i, $property := .Properties }}
+    ,[{{ .Name }}]
+{{ end }}
+FROM
+	[{{ .Table }}]
+WHERE
+	{{ range $i, $param := .Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if .PassiveProperties }} AND {{ range $i, $prop := .PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ end }}

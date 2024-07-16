@@ -1,0 +1,27 @@
+{{ define "GetOrCreate" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .EntityName }} {{ .Name }}({{ .ConstructedStringParameters }})
+    {
+         {{ if .RemoteCacheable }}
+        return EntityHelper.GetOrCreateEntityWithRemoteCache<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}>(
+            EntityCacheInfo,
+            {{ .LookupKey }},
+            () => Do{{ .Name }}({{ .ConstructedParameters }}),
+            Get
+        );
+        {{ else }}
+        return EntityHelper.GetOrCreateEntity<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}>(
+            EntityCacheInfo,
+            {{ .LookupKey }},
+            () => Do{{ .Name }}({{ .ConstructedParameters }})
+        );
+        {{ end }}
+    }
+{{ getRequiredWhitespaceMarker }}
+    private static {{ .EntityName }} Do{{ .Name }}({{ .ConstructedStringParameters }})
+    {
+        return EntityHelper.DoGetOrCreate<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}DAL, {{ .EntityName }}>(
+            () => {{ .EntityName }}DAL.{{ .DALName }}({{ .ConstructedParameters }})
+        );
+    }
+{{ end }}

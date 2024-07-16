@@ -1,0 +1,27 @@
+{{ define "GetCollectionExclusive" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .IDProperty.Type | toJson }}> {{ .DALName }}({{ .ConstructedStringParameters }}int count,{{ .ConstructedExclusiveStartStringParameters }} {{ .IDProperty.Type | toJson }}{{ if .ExclusiveStartParameters }}?{{ end }} exclusiveStart{{ .IDProperty.Name | normalizePascalParts }})
+    {
+        var queryParameters = new List<SqlParameter>();
+        {{ range .Parameters }}
+        queryParameters.Add(new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}));
+        {{ end }}
+        queryParameters.Add(new SqlParameter("@Count", count));
+        {{ range .ExclusiveStartParameters }}
+        queryParameters.Add(new SqlParameter("@ExclusiveStart{{ .Name | toPascalCase }}", exclusiveStart{{ .Name | toPascalCase }} != null ? exclusiveStart{{ .Name | toPascalCase }}{{ if and (eq .Type DateTime) (deref .IsUTC) }}.Value.ToUniversalTime(){{ else }}.Value{{ end }} : DBNull.Value));
+        {{ end }}
+        {{ if .ExclusiveStartParameters }}
+        queryParameters.Add(new SqlParameter("@ExclusiveStart{{ .IDProperty.Name }}", exclusiveStart{{ .IDProperty.Name | normalizePascalParts }} != null ? exclusiveStart{{ .IDProperty.Name | normalizePascalParts }} : DBNull.Value));
+        {{ else }}
+        queryParameters.Add(new SqlParameter("@ExclusiveStart{{ .IDProperty.Name }}", exclusiveStart{{ .IDProperty.Name | normalizePascalParts }}));
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetDataEntityIDCollection<{{ .IDProperty.Type | toJson }}>(
+            new DbInfo(
+                ConnectionString,
+                "[dbo].[{{ .Table }}_{{ .StoredProcedure }}]",
+                queryParameters
+            )
+        );
+    }
+{{ end }}

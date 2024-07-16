@@ -1,0 +1,33 @@
+{{ define "GetCollectionPaged" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .IDProperty.Type | toJson }}> {{ .DALName }}({{ .ConstructedStringParameters }}long startRowIndex, long maximumRows)
+    {
+        {{ range .Parameters }}
+        {{ if eq .Type string }}
+        if (string.IsNullOrEmpty({{ .Name }}))
+            throw new ArgumentException("Parameter '{{ .Name }}' cannot be null, empty or the default value.");
+        {{ else }}
+        if ({{ .Name }} == default({{ .Type | toJson }})) 
+            throw new ArgumentException("Parameter '{{ .Name }}' cannot be null, empty or the default value.");
+        {{ end }}
+        {{ end }}
+        if (startRowIndex < 1)
+            throw new ApplicationException("Required value not specified: StartRowIndex.");
+        if (maximumRows < 1)
+            throw new ApplicationException("Required value not specified: MaximumRows.");
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new SqlParameter[]
+        {
+            {{ range .Parameters }}
+            new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}),
+            {{ end }}
+            new SqlParameter("@StartRowIndex", startRowIndex),
+            new SqlParameter("@MaximumRows", maximumRows)
+        };
+{{ getRequiredWhitespaceMarker }}
+        return _Database.GetIDCollection<{{ .IDProperty.Type | toJson }}>(
+            "{{ .Table }}_{{ .StoredProcedure }}",
+            queryParameters
+        );
+    }
+{{ end }}

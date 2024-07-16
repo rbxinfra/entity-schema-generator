@@ -1,0 +1,23 @@
+{{ define "GetCollectionExclusive" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .EntityName }}> {{ .Name }}({{ .ConstructedStringParameters }}int count,{{ .ConstructedExclusiveStartStringParameters }} {{ .IDProperty.Type | toJson }}{{ if .ExclusiveStartParameters }}?{{ end }} exclusiveStart{{ .IDProperty.Name | normalizePascalParts }})
+    {
+        var collectionId = {{ .CollectionIdentifier }};
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntityCollection<{{ .EntityName }}, {{ .IDProperty.Type | toJson }}>(
+            EntityCacheInfo,
+            {{ .CachePolicy }},
+            collectionId,
+            () =>
+            {
+                return {{ .EntityName }}DAL.{{ .DALName }}(
+                    {{ .ConstructedParametersFormatted }}
+                    count,
+                    {{ range .ExclusiveStartParameters }}exclusiveStart{{ .Name | toPascalCase }},{{ end }}
+                    exclusiveStart{{ .IDProperty.Name | normalizePascalParts }}
+                );
+            },
+            Get
+        );
+    }
+{{ end }}

@@ -1,0 +1,52 @@
+{{ define "GetCollectionPaged" }}
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_{{ .StoredProcedure }}]') AND type in (N'P', N'PC'))
+BEGIN
+	EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}]
+(
+    {{ range .Parameters }}
+    {{ if or (eq .SqlDbType VarChar) (eq .SqlDbType NVarChar) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}),
+    {{ else if eq .SqlDbType Binary }}
+    {{ if not (deref .IsVarBinary) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ .Length }}),
+    {{ else }}
+    @{{ .Name | toPascalCase }} [varbinary]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}),
+    {{ end }}
+    {{ else }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}],
+    {{ end }}
+    {{ end }}
+    @StartRowIndex [bigint],
+    @MaximumRows [bigint]
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+SELECT
+    [{{ .IDProperty.Name }}]
+FROM
+	[{{ .Table }}]
+{{ if or (.Parameters) (.PassiveProperties) }}
+WHERE
+	{{ range $i, $param := .Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if .PassiveProperties }}{{ if .Parameters }} AND {{ end }}{{ range $i, $prop := .PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}
+{{ end }}
+ORDER BY [{{ .IDProperty.Name }}]
+OFFSET @StartRowIndex-2 ROWS FETCH NEXT @MaximumRows ROWS ONLY
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ end }}

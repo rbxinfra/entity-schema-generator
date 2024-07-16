@@ -1,0 +1,31 @@
+{{ define "GetOrCreate" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static EntityHelper.GetOrCreateDALWrapper<{{ .EntityName }}DAL> {{ .DALName }}({{ .ConstructedStringParameters }})
+    {
+        {{ range .Parameters }}
+        {{ if eq .Type string }}
+        if (string.IsNullOrEmpty({{ .Name }}))
+            throw new ApplicationException("Required value not specified: {{ .Name | toPascalCase }}.");
+        {{ else }}
+        if ({{ .Name }} == default({{ .Type | toJson }})) 
+            throw new ApplicationException("Required value not specified: {{ .Name | toPascalCase }}.");
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new List<SqlParameter>();
+        {{ range .Parameters }}
+        queryParameters.Add(new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}{{ if and (eq .Type DateTime) (deref .IsUTC) }}.ToUniversalTime(){{ end }}));
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var dbInfo = new DbInfo(
+            ConnectionString,
+            "[dbo].[{{ .Table }}_{{ .StoredProcedure }}]",
+            queryParameters
+        );
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetOrCreateEntityDAL(
+            dbInfo,
+            BuildDAL
+        );
+    }
+{{ end }}

@@ -1,0 +1,57 @@
+namespace {{ .Namespace }};
+{{ getRequiredWhitespaceMarker }}
+using System;
+{{ getRequiredWhitespaceMarker }}
+using Roblox.Entities;
+{{ getRequiredWhitespaceMarker }}
+{{ .Visibility | toJson }} class {{ .EntityName }}Entity : I{{ .EntityName }}Entity
+{
+    /// <inheritdoc cref="IEntity{TId}.Id" />
+    public {{ .IDProperty.Type | toJson }} Id { get; set; }
+{{ range .Properties }}
+    {{ if not (eq .Name "Created") }}
+    {{ if not (eq .Name "Updated") }}
+    /// <inheritdoc cref="I{{ $.EntityName }}Entity.{{ .Name | normalizePascalParts }}" />
+    public {{ .Type | toJson }}{{ if and (deref .Nullable) (ne .Type string) }}?{{ end }} {{ .Name | normalizePascalParts }} { get; set; }
+{{ getRequiredWhitespaceMarker }}
+    {{ end }}
+    {{ end }}
+{{ end }}
+    /// <inheritdoc cref="IEntity{TId}.Created" />
+    public DateTime Created { get; set; }
+    {{ if eq .EntityType "UpdateableEntity" }}
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="IUpdateableEntity{T}.Updated" />
+    public DateTime Updated { get; set; }
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="IUpdateableEntity{T}.Update" />
+    public void Update()
+    {
+        var cal = {{ .EntityName }}.Get(Id) ?? throw new InvalidOperationException("Attempted update on unpersisted entity.");
+        {{ range .Properties }}
+        {{ if not (eq .Name "Created") }}
+        {{ if not (eq .Name "Updated") }}
+        {{ if not (deref .ReadOnly) }}
+        cal.{{ .Name }} = {{ .Name | normalizePascalParts }};
+        {{ end }}
+        {{ end }}
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        cal.Save();
+{{ getRequiredWhitespaceMarker }}
+        {{ if .IsUpdatedNullable }}
+        Updated = cal.Updated ?? DateTime.Now;
+        {{ else }}
+        Updated = cal.Updated;
+        {{ end }}
+    }
+    {{ end }}
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="IEntity{TId}.Delete" />
+    public void Delete()
+    {
+        var cal = {{ .EntityName }}.Get(Id) ?? throw new InvalidOperationException("Attempted delete on unpersisted entity.");
+        cal.Delete();
+    }
+}

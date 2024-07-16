@@ -1,0 +1,217 @@
+namespace {{ .DALNamespace }};
+{{ getRequiredWhitespaceMarker }}
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Collections.Generic;
+{{ getRequiredWhitespaceMarker }}
+using Roblox.Data;
+using Roblox.MssqlDatabases;
+{{ getRequiredWhitespaceMarker }}
+[Serializable]
+{{ .DALVisibility | toJson }} class {{ .EntityName }}DAL
+{
+    private {{ .IDProperty.Type | toJson }} _{{ .IDProperty.Name }} = default({{ .IDProperty.Type | toJson }});
+    {{ range .Properties }}
+    {{ if and (deref .Nullable) (ne .Type string) }}
+    private {{ .Type | toJson }}? _{{ .Name }} = null;
+    {{ else }}
+    {{ if eq .Type string }}
+    private {{ .Type | toJson }} _{{ .Name }} = string.Empty;
+    {{ else }}
+    private {{ .Type | toJson }} _{{ .Name }} = default({{ .Type | toJson }});
+    {{ end }}
+    {{ end }}
+    {{ end }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .IDProperty.Visibility | toJson }} {{ .IDProperty.Type | toJson }} {{ .IDProperty.Name }}
+    {
+        get { return _{{ .IDProperty.Name }}; }
+        set { _{{ .IDProperty.Name }} = value; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ range .Properties }}
+    {{ if and (deref .Nullable) (ne .Type string) }}
+    {{ .Visibility | toJson }} {{ .Type | toJson }}? {{ .Name }}
+    {
+        get { return _{{ .Name }}; }
+        set { _{{ .Name }} = value; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ else }}
+    {{ .Visibility | toJson }} {{ .Type | toJson }} {{ .Name }}
+    {
+        get { return _{{ .Name }}; }
+        set { _{{ .Name }} = value; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ end }}
+    {{ end }}
+{{ getRequiredWhitespaceMarker }}
+    private static string ConnectionString
+    {
+        get { return global::Roblox.MssqlDatabases.RobloxDatabase.{{ .Database }}.GetConnectionString(); }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .DALVisibility | toJson }} void Delete()
+    {
+        if (_{{ .IDProperty.Name }} == default({{ .IDProperty.Type | toJson }}))
+            throw new ApplicationException("Required value not specified: {{ .IDProperty.Name }}.");
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new List<SqlParameter>();
+        queryParameters.Add(new SqlParameter("@{{ .IDProperty.Name }}", _{{ .IDProperty.Name }}));
+{{ getRequiredWhitespaceMarker }}
+        var dbInfo = new DbInfo(
+            ConnectionString, 
+            "[dbo].[{{ .Table }}_Delete{{ .EntityName }}By{{ .IDProperty.Name }}]", 
+            queryParameters
+        );
+{{ getRequiredWhitespaceMarker }}
+        EntityHelper.DoEntityDALDelete(dbInfo);
+    }
+{{ getRequiredWhitespaceMarker }}
+    public {{ .EntityName }}DAL() { }
+{{ getRequiredWhitespaceMarker }}
+    {{ .DALVisibility | toJson }} void Insert()
+    {
+        {{ range .Properties }}
+        {{ if not (deref .Nullable) }}
+        {{ if eq .Type string }}
+        if (string.IsNullOrEmpty(_{{ .Name }}))
+            throw new ApplicationException("Required value not specified: {{ .Name }}.");
+        {{ else }}
+        if (_{{ .Name }} == default({{ .Type | toJson }}))
+            throw new ApplicationException("Required value not specified: {{ .Name }}.");
+        {{ end }}
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new List<SqlParameter>();
+        {{ range .Properties }}
+        {{ if and (deref .Nullable) (ne .Type string) }}
+        queryParameters.Add(new SqlParameter("@{{ .Name }}", _{{ .Name }} == null ? DBNull.Value : (object)_{{ .Name }}));
+        {{ else }}
+        queryParameters.Add(new SqlParameter("@{{ .Name }}", _{{ .Name }}));
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        {{ range .Properties }}
+        {{ if and (deref .Nullable) (eq .Type string) }}
+        if (!string.IsNullOrEmpty(_{{ .Name }}))
+            queryParameters.Add(new SqlParameter("@{{ .Name }}", _{{ .Name }}));
+        else
+            queryParameters.Add(new SqlParameter("@{{ .Name }}", DBNull.Value));
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var dbInfo = new DbInfo(
+            ConnectionString,
+            "[dbo].[{{ .Table }}_Insert{{ .EntityName }}]",
+            new SqlParameter("@{{ .IDProperty.Name }}", SqlDbType.{{ .IDProperty.SqlDbType | toJson }}),
+            queryParameters
+        );
+{{ getRequiredWhitespaceMarker }}
+        _{{ .IDProperty.Name }} = EntityHelper.DoEntityDALInsert<{{ .IDProperty.Type | toJson }}>(dbInfo);
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .DALVisibility | toJson }} void Update()
+    {
+        if (_{{ .IDProperty.Name }} == default({{ .IDProperty.Type | toJson }}))
+            throw new ApplicationException("Required value not specified: {{ .IDProperty.Name }}.");
+        {{ range .Properties }}
+        {{ if not (deref .Nullable) }}
+        {{ if eq .Type string }}
+        if (string.IsNullOrEmpty(_{{ .Name }}))
+            throw new ApplicationException("Required value not specified: {{ .Name }}.");
+        {{ else }}
+        if (_{{ .Name }} == default({{ .Type | toJson }}))
+            throw new ApplicationException("Required value not specified: {{ .Name }}.");
+        {{ end }}
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new List<SqlParameter>();
+        queryParameters.Add(new SqlParameter("@{{ .IDProperty.Name }}", _{{ .IDProperty.Name }}));
+        {{ range .Properties }}
+        {{ if and (deref .Nullable) (ne .Type string) }}
+        queryParameters.Add(new SqlParameter("@{{ .Name }}", _{{ .Name }} == null ? DBNull.Value : (object)_{{ .Name }}));
+        {{ else }}
+        queryParameters.Add(new SqlParameter("@{{ .Name }}", _{{ .Name }}));
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        {{ range .Properties }}
+        {{ if and (deref .Nullable) (eq .Type string) }}
+        if (!string.IsNullOrEmpty(_{{ .Name }}))
+            queryParameters.Add(new SqlParameter("@{{ .Name }}", _{{ .Name }}));
+        else
+            queryParameters.Add(new SqlParameter("@{{ .Name }}", DBNull.Value));
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var dbInfo = new DbInfo(
+            ConnectionString,
+            "[dbo].[{{ .Table }}_Update{{ .EntityName }}By{{ .IDProperty.Name }}]",
+            queryParameters
+        );
+{{ getRequiredWhitespaceMarker }}
+        EntityHelper.DoEntityDALUpdate(dbInfo);
+    }
+{{ getRequiredWhitespaceMarker }}
+    private static {{ .EntityName }}DAL BuildDAL(SqlDataReader reader)
+    {
+        var dal = new {{ .EntityName }}DAL();
+{{ getRequiredWhitespaceMarker }}
+        while (reader.Read())
+        {
+            dal.{{ .IDProperty.Name }} = ({{ .IDProperty.Type | toJson }})reader["{{ .IDProperty.Name }}"];
+            {{ range .Properties }}
+            {{ if (deref .Nullable) }}
+            dal.{{ .Name }} = reader["{{ .Name }}"].Equals(DBNull.Value) ? null : {{ if and (eq .Type DateTime) (deref .IsUTC) }}DateTime.SpecifyKind(({{ .Type | toJson }})reader["{{ .Name }}"], DateTimeKind.Utc){{ else }}({{ .Type | toJson }})reader["{{ .Name }}"]{{ end }};
+            {{ else }}
+            dal.{{ .Name }} = {{ if and (eq .Type DateTime) (deref .IsUTC) }}DateTime.SpecifyKind(({{ .Type | toJson }})reader["{{ .Name }}"], DateTimeKind.Utc){{ else }}({{ .Type | toJson }})reader["{{ .Name }}"]{{ end }};
+            {{ end }}
+            {{ end }}
+        }
+{{ getRequiredWhitespaceMarker }}
+        if (dal.{{ .IDProperty.Name }} == default({{ .IDProperty.Type | toJson }}))
+            return null;
+{{ getRequiredWhitespaceMarker }}
+        return dal;
+    }
+{{ getRequiredWhitespaceMarker}}
+    {{ .DALVisibility | toJson }} static {{ .EntityName }}DAL Get({{ .IDProperty.Type | toJson }} {{ .IDProperty.Name | toLower }})
+    {
+        if ({{ .IDProperty.Name | toLower }} == default({{ .IDProperty.Type | toJson }}))
+            return null;
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new List<SqlParameter>();
+        queryParameters.Add(new SqlParameter("@{{ .IDProperty.Name }}", {{ .IDProperty.Name | toLower }}));
+
+        var dbInfo = new DbInfo(
+            ConnectionString,
+            "[dbo].[{{ .Table }}_Get{{ .EntityName }}By{{ .IDProperty.Name }}]",
+            queryParameters
+        );
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntityDAL(dbInfo, BuildDAL);
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ range .Methods }}
+    {{ if eq .Type Lookup }}
+        {{ template "Lookup" . }}
+    {{ else if eq .Type GetOrCreate }}
+        {{ template "GetOrCreate" . }}
+    {{ else if eq .Type GetCollection }}
+        {{ template "GetCollection" . }}
+    {{ else if eq .Type GetCollectionPaged }}
+        {{ template "GetCollectionPaged" . }}
+    {{ else if eq .Type GetCollectionExclusive }}
+        {{ template "GetCollectionExclusive" . }}
+    {{ else if eq .Type GetCount }}
+        {{ template "GetCount" . }}
+    {{ else if eq .Type MultiGet }}
+        {{ template "MultiGet" . }}
+    {{ end }}
+    {{ end }}
+}

@@ -1,0 +1,101 @@
+namespace {{ .DALNamespace }};
+{{ getRequiredWhitespaceMarker }}
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Collections.Generic;
+{{ getRequiredWhitespaceMarker }}
+using Roblox.Data;
+using Roblox.Entities.Mssql;
+{{ getRequiredWhitespaceMarker }}
+{{ .DALVisibility | toJson }} class {{ .EntityName }}DAL
+{
+    private const Roblox.MssqlDatabases.RobloxDatabase _Database = global::Roblox.MssqlDatabases.RobloxDatabase.{{ .Database }};
+{{ getRequiredWhitespaceMarker }}
+    {{ .IDProperty.Visibility | toJson }} {{ .IDProperty.Type | toJson }} {{ .IDProperty.Name }} { get; set; }
+    {{ range .Properties }}
+    {{ if and (deref .Nullable) (ne .Type string) }}
+    {{ .Visibility | toJson }} {{ .Type | toJson }}? {{ .Name }} { get; set; }
+    {{ else }}
+    {{ .Visibility | toJson }} {{ .Type | toJson }} {{ .Name }} { get; set; }
+    {{ end }}{{ end }}
+{{ getRequiredWhitespaceMarker }}
+    private static {{ .EntityName }}DAL BuildDAL(IDictionary<string, object> record)
+    {
+        var dal = new {{ .EntityName }}DAL();
+        dal.{{ .IDProperty.Name }} = ({{ .IDProperty.Type | toJson }})record["{{ .IDProperty.Name }}"];
+        {{ range .Properties }}
+        {{ if (deref .Nullable) }}
+        dal.{{ .Name }} = record["{{ .Name }}"] != null ? ({{ .Type | toJson }})record["{{ .Name }}"] : default({{ .Type | toJson }});
+        {{ else }}
+        dal.{{ .Name }} = ({{ .Type | toJson }})record["{{ .Name }}"];
+        {{ end }}{{ end }}
+{{ getRequiredWhitespaceMarker }}
+        return dal;
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .DALVisibility | toJson }} void Delete()
+    {
+        _Database.Delete("{{ .Table }}_Delete{{ .EntityName }}By{{ .IDProperty.Name }}", {{ .IDProperty.Name }});
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .DALVisibility | toJson }} void Insert()
+    {
+        var queryParameters = new SqlParameter[]
+        {
+            new SqlParameter("@{{ .IDProperty.Name }}", {{ .IDProperty.Name }}) { Direction = ParameterDirection.Output },
+            {{ range .Properties }}
+            {{ if and (deref .Nullable) (ne .Type string) }}
+            new SqlParameter("@{{ .Name }}", {{ .Name }} == null ? DBNull.Value : (object){{ .Name }}),
+            {{ else }}
+            new SqlParameter("@{{ .Name }}", {{ .Name }}),
+            {{ end }}
+            {{ end }}
+        };
+{{ getRequiredWhitespaceMarker }}
+        {{ .IDProperty.Name }} = _Database.Insert<{{ .IDProperty.Type | toJson }}>("{{ .Table }}_Insert{{ .EntityName }}", queryParameters);
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .DALVisibility | toJson }} void Update()
+    {
+        var queryParameters = new SqlParameter[]
+        {
+            new SqlParameter("@{{ .IDProperty.Name }}", {{ .IDProperty.Name }}),
+            {{ range .Properties }}
+            {{ if and (deref .Nullable) (ne .Type string) }}
+            new SqlParameter("@{{ .Name }}", {{ .Name }} == null ? DBNull.Value : (object){{ .Name }}),
+            {{ else }}
+            new SqlParameter("@{{ .Name }}", {{ .Name }}),
+            {{ end }}
+            {{ end }}
+        };
+{{ getRequiredWhitespaceMarker }}
+        _Database.Update("{{ .Table }}_Update{{ .EntityName }}By{{ .IDProperty.Name }}", queryParameters);
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .DALVisibility | toJson }} static {{ .EntityName }}DAL Get({{ .IDProperty.Type | toJson }} {{ .IDProperty.Name | toLower }})
+    {
+        return _Database.Get(
+            "{{ .Table }}_Get{{ .EntityName }}By{{ .IDProperty.Name }}",
+            {{ .IDProperty.Name | toLower }},
+            BuildDAL
+        );
+    }
+    {{ range .Methods }}
+    {{ if eq .Type Lookup }}
+        {{ template "Lookup" . }}
+    {{ else if eq .Type GetOrCreate }}
+        {{ template "GetOrCreate" . }}
+    {{ else if eq .Type GetCollection }}
+        {{ template "GetCollection" . }}
+    {{ else if eq .Type GetCollectionPaged }}
+        {{ template "GetCollectionPaged" . }}
+    {{ else if eq .Type GetCollectionExclusive }}
+        {{ template "GetCollectionExclusive" . }}
+    {{ else if eq .Type GetCount }}
+        {{ template "GetCount" . }}
+    {{ else if eq .Type MultiGet }}
+        {{ template "MultiGet" . }}
+    {{ end }}
+    {{ end }}
+}

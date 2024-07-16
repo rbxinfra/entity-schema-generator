@@ -1,0 +1,22 @@
+{{ define "GetCount" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .CountReturnType | toJson }} {{ .DALName }}({{ .ConstructedStringParameters }})
+    {
+        {{ if .Parameters }}
+        var queryParameters = new List<SqlParameter>();
+        {{ range .Parameters }}
+        queryParameters.Add(new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}{{ if and (eq .Type DateTime) (deref .IsUTC) }}.ToUniversalTime(){{ end }}));
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        {{ end }}
+        var dbInfo = new DbInfo(
+            ConnectionString,
+            "[dbo].[{{ .Table }}_{{ .StoredProcedure }}]"
+            {{ if .Parameters }},
+            queryParameters
+            {{ end }}
+        );
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetDataCount<{{ .CountReturnType | toJson }}>(dbInfo);
+    }
+{{ end }}

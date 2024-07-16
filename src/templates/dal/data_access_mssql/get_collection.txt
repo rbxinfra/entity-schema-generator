@@ -1,0 +1,29 @@
+{{ define "GetCollection" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .IDProperty.Type | toJson }}> {{ .DALName }}({{ .ConstructedStringParameters }})
+    {
+        {{ range .Parameters }}
+            {{ if eq .Type string }}
+        if (string.IsNullOrEmpty({{ .Name }}))
+            throw new ArgumentException("Parameter '{{ .Name }}' cannot be null, empty or the default value.");
+            {{ else }}
+        if ({{ .Name }} == default({{ .Type | toJson }})) 
+            throw new ArgumentException("Parameter '{{ .Name }}' cannot be null, empty or the default value.");
+            {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        {{ end }}
+        {{ if .Parameters }}
+        var queryParameters = new SqlParameter[]
+        {
+            {{ range .Parameters }}
+            new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}),
+            {{ end }}
+        };
+{{ getRequiredWhitespaceMarker }}
+        {{ end }}
+        return _Database.GetIDCollection<{{ .IDProperty.Type | toJson }}>(
+            "{{ .Table }}_{{ .StoredProcedure }}"{{ if .Parameters }},{{ end }}
+            {{ if .Parameters }}queryParameters{{ end }}
+        );
+    }
+{{ end }}

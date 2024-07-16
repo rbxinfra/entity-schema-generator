@@ -1,0 +1,29 @@
+{{ define "GetOrCreate" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static EntityHelper.GetOrCreateDALWrapper<{{ .EntityName }}DAL> {{ .DALName }}({{ .ConstructedStringParameters }})
+    {
+        {{ range .Parameters }}
+        {{ if eq .Type string }}
+        if (string.IsNullOrEmpty({{ .Name }}))
+            return null;
+        {{ else }}
+        if ({{ .Name }} == default({{ .Type | toJson }})) 
+            return null;
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new SqlParameter[]
+        {
+            new SqlParameter("@CreatedNewEntity", SqlDbType.Bit) { Direction = ParameterDirection.Output },
+            {{ range .Parameters }}
+            new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}),
+            {{ end }}
+        };
+{{ getRequiredWhitespaceMarker }}
+        return _Database.GetOrCreate(
+            "{{ .Table }}_{{ .StoredProcedure }}",
+            BuildDAL,
+            queryParameters
+        );
+    }
+{{ end }}

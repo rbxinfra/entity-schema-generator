@@ -1,0 +1,135 @@
+{{ define "GetCollectionExclusive" }}
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_{{ .StoredProcedure }}]') AND type in (N'P', N'PC'))
+BEGIN
+	EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}]
+(
+    {{ range .Parameters }}
+    {{ if or (eq .SqlDbType VarChar) (eq .SqlDbType NVarChar) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}),
+    {{ else if eq .SqlDbType Binary }}
+    {{ if not (deref .IsVarBinary) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ .Length }}),
+    {{ else }}
+    @{{ .Name | toPascalCase }} [varbinary]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}),
+    {{ end }}
+    {{ else }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}],
+    {{ end }}
+    {{ end }}
+    @Count [int],
+    {{ range .ExclusiveStartParameters }}
+    @ExclusiveStart{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}] NULL,
+    {{ end }}
+    @ExclusiveStart{{ .IDProperty.Name | toPascalCase }} [{{ .IDProperty.SqlDbType | toJson | toLower }}]{{ if .ExclusiveStartParameters }} NULL{{ else }} NOT NULL{{ end }}
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+{{ if not .ExclusiveStartParameters }}
+DECLARE @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}Offset int
+SELECT
+    @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}Offset = ROW_NUMBER() OVER (ORDER BY [{{ .IDProperty.Name }}])
+FROM
+    [{{ .Table }}]
+WHERE
+    ([{{ .IDProperty.Name }}] = @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}){{ if or (.Parameters) (.PassiveProperties) }} AND {{ range $i, $param := .Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if .PassiveProperties }}{{ if .Parameters }} AND {{ end }}{{ range $i, $prop := .PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}{{ end }}
+ORDER BY
+    [{{ .IDProperty.Name }}]
+{{ getRequiredWhitespaceMarker }}
+SELECT
+    [{{ .IDProperty.Name }}]
+FROM
+	[{{ .Table }}]
+{{ if or (.Parameters) (.PassiveProperties) }}
+WHERE
+	{{ range $i, $param := .Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if .PassiveProperties }}{{ if .Parameters }} AND {{ end }}{{ range $i, $prop := .PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}
+{{ end }}
+ORDER BY
+    [{{ .IDProperty.Name }}]
+OFFSET @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}Offset ROWS FETCH NEXT @Count ROWS ONLY
+{{ else }}
+IF (@ExclusiveStart{{ .IDProperty.Name | toPascalCase }} IS NOT NULL)
+BEGIN
+    DECLARE @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}Offset int
+    SELECT
+        @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}Offset = ROW_NUMBER() OVER (ORDER BY [{{ .IDProperty.Name }}])
+    FROM
+        [{{ .Table }}]
+    WHERE
+        ([{{ .IDProperty.Name }}] = @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}){{ if or (.Parameters) (.PassiveProperties) }} AND {{ range $i, $param := .Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if .PassiveProperties }}{{ if .Parameters }} AND {{ end }}{{ range $i, $prop := .PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}{{ end }}
+    ORDER BY
+        [{{ .IDProperty.Name }}]
+{{ getRequiredWhitespaceMarker }}
+    SELECT
+        [{{ .IDProperty.Name }}]
+    FROM
+        [{{ .Table }}]
+    {{ if or (.Parameters) (.PassiveProperties) }}
+    WHERE
+        {{ range $i, $param := .Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if .PassiveProperties }}{{ if .Parameters }} AND {{ end }}{{ range $i, $prop := .PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}
+    {{ end }}
+    ORDER BY
+        [{{ .IDProperty.Name }}]
+    OFFSET @ExclusiveStart{{ .IDProperty.Name | toPascalCase }}Offset ROWS FETCH NEXT @Count ROWS ONLY
+{{ getRequiredWhitespaceMarker }}
+    SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+    RETURN
+END
+{{ range .ExclusiveStartParameters }}
+{{ getRequiredWhitespaceMarker }}
+IF (@ExclusiveStart{{ .Name | toPascalCase }} IS NOT NULL)
+BEGIN
+    DECLARE @ExclusiveStart{{ .Name | toPascalCase }}Offset int
+    SELECT
+        @ExclusiveStart{{ .Name | toPascalCase }}Offset = ROW_NUMBER() OVER (ORDER BY [{{ .Name | toPascalCase }}])
+    FROM
+        [{{ $.Table }}]
+    WHERE
+        ([{{ .Name | toPascalCase }}] = @ExclusiveStart{{ .Name | toPascalCase }}){{ if or ($.Parameters) ($.PassiveProperties) }} AND {{ range $i, $param := $.Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if $.PassiveProperties }}{{ if $.Parameters }} AND {{ end }}{{ range $i, $prop := $.PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}{{ end }}
+    ORDER BY
+        [{{ .Name | toPascalCase }}]
+{{ getRequiredWhitespaceMarker }}
+    IF (@ExclusiveStart{{ .Name | toPascalCase }}Offset IS NULL)
+    BEGIN
+        SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+        RETURN
+    END
+{{ getRequiredWhitespaceMarker }}
+    SELECT
+        [{{ $.IDProperty.Name }}]
+    FROM
+        [{{ $.Table }}]
+    {{ if or ($.Parameters) ($.PassiveProperties) }}
+    WHERE
+        {{ range $i, $param := $.Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if $.PassiveProperties }}{{ if $.Parameters }} AND {{ end }}{{ range $i, $prop := $.PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}
+    {{ end }}
+    ORDER BY
+        [{{ $.IDProperty.Name }}]
+    OFFSET @ExclusiveStart{{ .Name | toPascalCase }}Offset ROWS FETCH NEXT @Count ROWS ONLY
+{{ getRequiredWhitespaceMarker }}
+    SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+    RETURN
+END
+{{ end }}
+{{ end }}
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ end }}

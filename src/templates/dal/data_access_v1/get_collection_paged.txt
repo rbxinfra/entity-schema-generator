@@ -1,0 +1,20 @@
+{{ define "GetCollectionPaged" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .IDProperty.Type | toJson }}> {{ .DALName }}({{ .ConstructedStringParameters }}long startRowIndex, long maximumRows)
+    {
+        var queryParameters = new List<SqlParameter>();
+        {{ range .Parameters -}}
+        queryParameters.Add(new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}{{ if and (eq .Type DateTime) (deref .IsUTC) }}.ToUniversalTime(){{ end }}));
+        {{ end }}
+        queryParameters.Add(new SqlParameter("@StartRowIndex", startRowIndex));
+        queryParameters.Add(new SqlParameter("@MaximumRows", maximumRows));
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetDataEntityIDCollection<{{ .IDProperty.Type | toJson }}>(
+            new DbInfo(
+                ConnectionString,
+                "[dbo].[{{ .Table }}_{{ .StoredProcedure }}]",
+                queryParameters
+            )
+        );
+    }
+{{ end }}

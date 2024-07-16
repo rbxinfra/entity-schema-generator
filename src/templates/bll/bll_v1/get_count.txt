@@ -1,0 +1,14 @@
+{{ define "GetCount" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .CountReturnType | toJson }} {{ .Name }}({{ .ConstructedStringParameters }})
+    {
+        var countId = {{ .CollectionIdentifier }};
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntityCount<{{ .CountReturnType | toJson }}>(
+            EntityCacheInfo,
+            {{ .CachePolicy }},
+            countId,
+            () => {{ .EntityName }}DAL.{{ .DALName }}({{ .ConstructedParameters }})
+        );
+    }
+{{ end }}

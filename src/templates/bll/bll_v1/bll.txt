@@ -1,0 +1,244 @@
+namespace {{ .Namespace }};
+{{ getRequiredWhitespaceMarker }}
+using System;
+using System.Linq;
+using System.Collections.Generic;
+{{ getRequiredWhitespaceMarker }}
+using Roblox.Data;
+using Roblox.Caching;
+{{ if and (.RemoteCacheable) (.RemoteCacheable.MemcachedGroupSetting) }}
+using Roblox.Configuration;
+{{ end }}
+using Roblox.Data.Interfaces;
+using Roblox.Caching.Interfaces;
+{{ getRequiredWhitespaceMarker }}
+{{ if (ne .Namespace .DALNamespace) }}
+using {{ .DALNamespace }};
+{{ getRequiredWhitespaceMarker }}
+{{ end }}
+{{ .Visibility | toJson }} class {{ .EntityName }} : IRobloxEntity<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}DAL>{{ if .RemoteCacheable }}, IRemoteCacheableObject{{ end }}
+{
+    private {{ .EntityName }}DAL _EntityDAL;
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="ICacheableObject{TIndex}.ID"/>
+    {{ if (deref .IDProperty.ReadOnly) }}
+    {{ .IDProperty.Visibility | toJson }} {{ .IDProperty.Type | toJson }} {{ .IDProperty.Name }}
+    {
+        get { return _EntityDAL.{{ .IDProperty.Name }}; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ else }}
+    {{ .IDProperty.Visibility | toJson }} {{ .IDProperty.Type | toJson }} {{ .IDProperty.Name }}
+    {
+        get { return _EntityDAL.{{ .IDProperty.Name }}; }
+        set { _EntityDAL.{{ .IDProperty.Name }} = value; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ end }}
+    {{ range .Properties }}
+    {{ if (deref .ReadOnly) }}
+    {{ .Visibility | toJson }} {{ .Type | toJson }}{{ if and (deref .Nullable) (ne .Type string) }}?{{ end }} {{ .Name }}
+    {
+        get { return _EntityDAL.{{ .Name }}; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ else }}
+    {{ .Visibility | toJson }} {{ .Type | toJson }}{{ if and (deref .Nullable) (ne .Type string) }}?{{ end }} {{ .Name }}
+    {
+        get { return _EntityDAL.{{ .Name }}; }
+        set { _EntityDAL.{{ .Name }} = value; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ end }}
+    {{ end }}
+    {{ if .Predefined }}
+    {{ range .Predefined.Values }}
+    {{ $name := .Name }}
+    public static readonly {{ $.IDProperty.Type | toJson }} {{ .Name }}{{ $.IDProperty.Name }};
+    {{ range .Properties }}
+    {{ $kvPair := getFirstElement . }}
+    {{ $k := index $kvPair 0 }}
+    {{ $v := index $kvPair 1 }}
+    {{ $split := split $v ":" }}
+    {{ if eq (len $split) 1 }}
+    public const string {{ $name }}{{ $k }} = "{{ $v }}";
+    {{ else }}
+    public const {{ index $split 0 | toJson }} {{ $name }}{{ $k }} = {{ index $split 1 }};
+    {{ end }}
+    {{ end }}
+{{ getRequiredWhitespaceMarker }}
+    {{ end }}
+    static {{ .EntityName }}()
+    {
+        {{ range .Predefined.Values }}
+        {{ .PropertiesConstructed }};
+        {{ end }}
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ end }}
+    public {{ .EntityName }}()
+    { 
+        _EntityDAL = new {{ .EntityName }}DAL();
+    }
+    {{ if .RemoteCacheable }}
+{{ getRequiredWhitespaceMarker }}
+    internal {{ .EntityName }}({{ .EntityName}}DAL dal)
+    {
+        _EntityDAL = dal;
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ end }}
+    {{ if (deref .GenerateCreateNew) }}
+    {{ .Visibility | toJson }} static {{ .EntityName }} CreateNew({{ .PropertiesArgs }})
+    {
+        var entity = new {{ .EntityName }}();
+        {{ range .Properties }}
+        {{ if not (deref .ReadOnly) }}
+        {{ if and (ne .Name "Created") (ne .Name "Updated") }}
+        entity.{{ .Name }} = {{ .Name | toCamelCase }};
+        {{ end }}
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        entity.Save();
+{{ getRequiredWhitespaceMarker }}
+        return entity;
+    }
+    {{ end }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} void Delete()
+    {
+        EntityHelper.DeleteEntity{{ if .RemoteCacheable }}WithRemoteCache{{ end }}(
+            this,
+            _EntityDAL.Delete
+        );
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} void Save()
+    {
+        EntityHelper.SaveEntity{{ if .RemoteCacheable }}WithRemoteCache{{ end }}(
+            this, 
+            () =>
+            {
+                _EntityDAL.Created = DateTime.Now;
+                {{ if eq .EntityType "UpdateableEntity" }}
+                _EntityDAL.Updated = _EntityDAL.Created;
+                {{ end }}
+                _EntityDAL.Insert();
+            }, 
+            {{ if eq .EntityType "UpdateableEntity" }}
+            () =>
+            {
+                _EntityDAL.Updated = DateTime.Now;
+                _EntityDAL.Update();
+            }
+            {{ else }}
+            _EntityDAL.Update
+            {{ end }}
+        );
+    }
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .EntityName }} Get({{ .IDProperty.Type | toJson }} {{ .IDProperty.Name | toLower }})
+    {
+        return EntityHelper.GetEntity<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}DAL, {{ .EntityName }}>(
+            EntityCacheInfo, 
+            id, 
+            () => {{ .EntityName }}DAL.Get(id)
+        );
+    }
+    {{ if (deref .GenerateMustGet) }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .EntityName }} MustGet({{ .IDProperty.Type | toJson }} {{ .IDProperty.Name | toLower }})
+    {
+        return EntityHelper.MustGet<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}>(
+            {{ .IDProperty.Name | toLower }}, 
+            Get
+        );
+    }
+    {{ end }}
+    {{ range .Methods }}
+    {{ if eq .Type Lookup }}
+        {{ template "Lookup" . }}
+    {{ else if eq .Type GetOrCreate }}
+        {{ template "GetOrCreate" . }}
+    {{ else if eq .Type GetCollection }}
+        {{ template "GetCollection" . }}
+    {{ else if eq .Type GetCollectionPaged }}
+        {{ template "GetCollectionPaged" . }}
+    {{ else if eq .Type GetCollectionExclusive }}
+        {{ template "GetCollectionExclusive" . }}
+    {{ else if eq .Type GetCount }}
+        {{ template "GetCount" . }}
+    {{ else if eq .Type MultiGet }}
+        {{ template "MultiGet" . }}
+    {{ else if eq .Type MustGet }}
+        {{ template "MustGet" . }}
+    {{ end }}
+    {{ end }}
+{{ getRequiredWhitespaceMarker }}
+    #region IRobloxEntity Members
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="IRobloxEntity{TIndex, TDal}.Construct(TDal)"/>
+    public void Construct({{ .EntityName }}DAL dal)
+    {
+        _EntityDAL = dal;
+    }
+{{ getRequiredWhitespaceMarker }}
+    #endregion IRobloxEntity Members
+{{ getRequiredWhitespaceMarker }}
+    #region ICacheableObject Members
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="ICacheableObject.CacheInfo"/>
+    public CacheInfo CacheInfo
+    {
+        get { return EntityCacheInfo; }
+    }
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="ICacheableObject.CacheInfo"/>
+    public static CacheInfo EntityCacheInfo = new CacheInfo(
+        new CacheabilitySettings({{ .CacheabilitySettings | toStr }}),
+        typeof({{ .EntityName }}).ToString(),
+        {{ .CacheabilitySettings.IsNullCacheable }}
+        {{ if and (.RemoteCacheable) (.RemoteCacheable.MemcachedGroupSetting) }},
+        {{ if .RemoteCacheable.MemcachedGroupSettingProperty }}
+        new RemoteCachabilitySettings(
+            global::{{ .RemoteCacheable.MemcachedGroupSettingClass }}.ToSingleSetting(s => s.{{ .RemoteCacheable.MemcachedGroupSettingProperty }})
+        )
+        {{ else }}
+        global::{{ .RemoteCacheable.MemcachedGroupSettingClass }}
+        {{ end }}
+        {{ end }}
+    );
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="ICacheableObject.BuildEntityIDLookups"/>
+    public IEnumerable<string> BuildEntityIDLookups()
+    {
+        {{ range .LookupKeys }}
+        yield return {{ . }};
+        {{ end }}
+        yield break;
+    }
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="ICacheableObject.BuildStateTokenCollection"/>
+    public IEnumerable<StateToken> BuildStateTokenCollection()
+    {
+        {{ range .StateTokens }}
+        yield return {{ . }};
+        {{ end }}
+        yield break;
+    }
+{{ getRequiredWhitespaceMarker }}
+    #endregion ICacheableObject Members
+{{ if .RemoteCacheable }}
+{{ getRequiredWhitespaceMarker }}
+    #region IRemoteCacheableObject Members
+{{ getRequiredWhitespaceMarker }}
+    /// <inheritdoc cref="IRemoteCacheableObject.GetSerializable"/>
+    public object GetSerializable()
+    {
+        return _EntityDAL;
+    }
+{{ getRequiredWhitespaceMarker }}
+    #endregion IRemoteCacheableObject Members
+{{ end }}
+}

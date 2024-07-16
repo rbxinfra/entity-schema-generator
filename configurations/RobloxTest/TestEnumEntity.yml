@@ -1,0 +1,58 @@
+name: TestEnum
+
+database: TestDatabase
+table: TestEnums
+
+predefined:
+  method: MustGet
+  
+  values:
+    - name: Test1
+      properties:
+        - Value: "Test1"
+    - name: Test2
+      properties:
+        - Value: "Test2"
+    - name: Test3
+      properties:
+        - Value: "Test3"
+
+id: 
+  type: byte
+
+properties:
+  - name: Value
+    type: string
+    nullable: false
+    read_only: false
+    length: 256
+    is_unicode: false
+  - name: Created
+    type: DateTime
+    nullable: false
+  - name: Updated
+    type: DateTime
+    nullable: false
+
+methods:
+  - name: GetByValue
+    type: Lookup
+    parameters:
+      - name: value
+        type: string
+
+  - name: MustGet
+    type: MustGet
+    depends_on: GetByValue
+    parameters:
+      - name: value
+        type: string
+
+  - name: GetOrCreate
+    dal_name: GetOrCreateTestEnum
+    type: GetOrCreate
+    parameters:
+      - name: value
+        type: string
+        is_unicode: false
+        length: 256

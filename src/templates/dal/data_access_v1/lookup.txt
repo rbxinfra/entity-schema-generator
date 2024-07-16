@@ -1,0 +1,31 @@
+{{ define "Lookup" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .EntityName }}DAL {{ .DALName }}({{ .ConstructedStringParameters }})
+    {
+        {{ range .Parameters }}
+        {{ if eq .Type string }}
+        if (string.IsNullOrEmpty({{ .Name }}))
+            return null;
+        {{ else }}
+        if ({{ .Name }} == default({{ .Type | toJson }})) 
+            return null;
+        {{ end }}
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new List<SqlParameter>();
+        {{ range .Parameters }}
+        queryParameters.Add(new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}{{ if and (eq .Type DateTime) (deref .IsUTC) }}.ToUniversalTime(){{ end }}));
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        var dbInfo = new DbInfo(
+            ConnectionString,
+            "[dbo].[{{ .Table }}_{{ .StoredProcedure }}]",
+            queryParameters
+        );
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntityDAL(
+            dbInfo,
+            BuildDAL
+        );
+    }
+{{ end }}

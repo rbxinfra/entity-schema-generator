@@ -1,0 +1,20 @@
+namespace {{ .Namespace }};
+{{ getRequiredWhitespaceMarker }}
+using Roblox.Entities;
+{{ getRequiredWhitespaceMarker }}
+{{ .Visibility | toJson }} interface I{{ .EntityName }}Entity : I{{ .EntityType }}<{{ .IDProperty.Type | toJson }}>
+{
+{{ range .Properties }}
+    {{ if not (eq .Name "Created") }}
+    {{ if not (eq .Name "Updated") }}
+    {{ if .Description }}
+    /// <summary>
+    /// {{ .Description }}
+    /// </summary>
+    {{ end }}
+    {{ .Type | toJson }} {{ .Name }} { get; set; }
+{{ getRequiredWhitespaceMarker}}
+    {{ end }}
+    {{ end }}
+{{ end }}
+}

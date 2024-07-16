@@ -1,0 +1,22 @@
+{{ define "GetCollection" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .IDProperty.Type | toJson }}> {{ .DALName }}({{ .ConstructedStringParameters }})
+    {
+        {{ if .Parameters }}
+        var queryParameters = new List<SqlParameter>();
+        {{ range .Parameters }}
+        queryParameters.Add(new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}{{ if and (eq .Type DateTime) (deref .IsUTC) }}.ToUniversalTime(){{ end }}));
+        {{ end }}
+{{ getRequiredWhitespaceMarker }}
+        {{ end }}
+        return EntityHelper.GetDataEntityIDCollection<{{ .IDProperty.Type | toJson }}>(
+            new DbInfo(
+                ConnectionString,
+                "[dbo].[{{ .Table }}_{{ .StoredProcedure }}]"{{ if .Parameters }},{{ end }}
+                {{ if .Parameters }}
+                queryParameters
+                {{ end }}
+            )
+        );
+    }
+{{ end }}

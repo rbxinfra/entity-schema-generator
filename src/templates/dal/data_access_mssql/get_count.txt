@@ -1,0 +1,20 @@
+{{ define "GetCount" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .CountReturnType | toJson }} {{ .DALName }}({{ .ConstructedStringParameters }})
+    {
+        {{ if .Parameters }}
+        var queryParameters = new SqlParameter[]
+        {
+            {{ range .Parameters }}
+            new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}),
+            {{ end }}
+        };
+{{ getRequiredWhitespaceMarker }}
+        {{ end }}
+        return _Database.GetCount<{{ .CountReturnType | toJson }}>(
+            "{{ .Table }}_{{ .StoredProcedure }}"{{ if .Parameters }},
+            queryParameters: queryParameters
+            {{ end }}
+        );
+    }
+{{ end }}

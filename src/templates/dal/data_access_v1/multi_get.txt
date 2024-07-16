@@ -1,0 +1,38 @@
+{{ define "MultiGet" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .EntityName }}DAL> {{ .DALName }}(ICollection<{{ .IDProperty.Type | toJson }}> ids)
+    {
+        var dbInfo = new DbInfo(
+            ConnectionString,
+            "[dbo].[{{ .Table }}_{{ .StoredProcedure }}]"
+        );
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntityDALCollection<{{ .EntityName }}DAL, {{ .IDProperty.Type | toJson }}>(
+            dbInfo,
+            ids,
+            BuildDALCollection
+        );
+    }
+{{ getRequiredWhitespaceMarker }}
+    private static List<{{ .EntityName }}DAL> BuildDALCollection(SqlDataReader reader)
+    {
+        var dals = new List<{{ .EntityName }}DAL>();
+{{ getRequiredWhitespaceMarker }}
+        while (reader.Read())
+        {
+            var dal = new {{ .EntityName }}DAL();
+            dal.{{ .IDProperty.Name }} = ({{ .IDProperty.Type | toJson }})reader["{{ .IDProperty.Name }}"];
+            {{ range .Properties }}
+            {{ if (deref .Nullable) }}
+            dal.{{ .Name }} = reader["{{ .Name }}"].Equals(DBNull.Value) ? null : ({{ .Type | toJson }})reader["{{ .Name }}"];
+            {{ else }}
+            dal.{{ .Name }} = ({{ .Type | toJson }})reader["{{ .Name }}"];
+            {{ end }}
+            {{ end }}
+{{ getRequiredWhitespaceMarker }}
+            dals.Add(dal);
+        }
+{{ getRequiredWhitespaceMarker }}
+        return dals;
+    }
+{{ end }}

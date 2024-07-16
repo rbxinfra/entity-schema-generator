@@ -1,0 +1,7 @@
+name: TestDatabase2
+
+sharding: 
+  count: 5000
+  initial_size: 1GB
+  maximum_size: 1TB
+  growth_size: 500MB

@@ -1,0 +1,100 @@
+{{ define "GetOrCreate" }}
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_{{ .StoredProcedure }}]') AND type in (N'P', N'PC'))
+BEGIN
+	EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}]
+(
+    @CreatedNewEntity [bit] OUTPUT{{ if .Parameters }},{{ end }}
+    {{ range $i, $param := .Parameters }}
+    {{ if or (eq .SqlDbType VarChar) (eq .SqlDbType NVarChar) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ else if eq .SqlDbType Binary }}
+    {{ if not (deref .IsVarBinary) }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]({{ .Length }}){{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ else }}
+    @{{ .Name | toPascalCase }} [varbinary]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ end }}
+    {{ else }}
+    @{{ .Name | toPascalCase }} [{{ .SqlDbType | toJson | toLower }}]{{ if ne $i (sub (len $.Parameters) 1) }},{{ end }}
+    {{ end }}
+    {{ end }}
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+DECLARE @{{ .IDProperty.Name }} [{{ .IDProperty.SqlDbType | toJson | toLower }}]
+{{ getRequiredWhitespaceMarker }}
+SELECT
+    @{{ .IDProperty.Name }} = [{{ .IDProperty.Name }}]
+FROM
+	[{{ .Table }}]
+WHERE
+	{{ range $i, $param := .Parameters }}([{{ .Name | toPascalCase }}] = @{{ .Name | toPascalCase }}){{ if ne $i (sub (len $.Parameters) 1) }} AND {{ end }}{{ end }}{{ if .PassiveProperties }}{{ if .Parameters }} AND {{ end }}{{ range $i, $prop := .PassiveProperties }}([{{ .Name }}] = {{ .Value }}){{ if ne $i (sub (len $.PassiveProperties) 1) }} AND {{ end }}{{ end }}{{ end }}
+{{ getRequiredWhitespaceMarker }}
+IF (@{{ .IDProperty.Name }} IS NULL)
+BEGIN
+    DECLARE @Created [datetime] = GETDATE()
+    {{ if eq .EntityType "UpdateableEntity" }}
+    DECLARE @Updated [datetime] = @Created
+    {{ end }}
+    INSERT INTO
+	[{{ .Table }}]
+    (
+        {{ range $i, $property := .Parameters }}
+        [{{ .Name | toPascalCase }}],
+        {{ end }}
+        {{ if .PassiveProperties }}
+        {{ range $i, $prop := .PassiveProperties }}
+        [{{ .Name }}]{{ if ne $i (sub (len $.PassiveProperties) 1) }},{{ end }}
+        {{ end }}
+        {{ end }}
+        [Created]{{ if eq .EntityType "UpdateableEntity" }}, 
+        [Updated]{{ end }}
+    )
+    VALUES
+    (
+        {{ range $i, $property := .Parameters }}
+        @{{ .Name | toPascalCase }},
+        {{ end }}
+        {{ if .PassiveProperties }}
+        {{ range $i, $prop := .PassiveProperties }}
+        {{ .Value }}{{ if ne $i (sub (len $.PassiveProperties) 1) }},{{ end }}
+        {{ end }}
+        {{ end }}
+        @Created{{ if eq .EntityType "UpdateableEntity" }},
+        @Updated{{ end }}
+    )
+    SET @{{ .IDProperty.Name }} = SCOPE_IDENTITY();
+    SET @CreatedNewEntity = 1
+END
+ELSE
+BEGIN
+    SET @CreatedNewEntity = 0
+END
+{{ getRequiredWhitespaceMarker }}
+SELECT
+    [{{ .IDProperty.Name }}]
+{{ range $i, $property := .Properties }}
+    ,[{{ .Name }}]
+{{ end }}
+FROM
+    [{{ .Table }}]
+WHERE
+    ([{{ .IDProperty.Name }}] = @{{ .IDProperty.Name }})
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ end }}

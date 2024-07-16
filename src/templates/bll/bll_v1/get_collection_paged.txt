@@ -1,0 +1,22 @@
+{{ define "GetCollectionPaged" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .EntityName }}> {{ .Name }}({{ .ConstructedStringParameters }}long startRowIndex, long maximumRows)
+    {
+        var collectionId = {{ .CollectionIdentifier }};
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntityCollection<{{ .EntityName }}, {{ .IDProperty.Type | toJson }}>(
+            EntityCacheInfo,
+            {{ .CachePolicy }},
+            collectionId,
+            () =>
+            {
+                return {{ .EntityName }}DAL.{{ .DALName }}(
+                    {{ .ConstructedParametersFormatted }}
+                    startRowIndex + 1,
+                    maximumRows
+                );
+            },
+            Get
+        );
+    }
+{{ end }}

@@ -1,0 +1,26 @@
+{{ define "MultiGet" }}
+{{ if ne .Version 1 }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .EntityName }}> {{ .Name }}(IEnumerable<{{ .IDProperty.Type | toJson }}> ids)
+    {
+        if (ids == null) throw new ArgumentNullException(nameof(ids));
+        if (!ids.Any()) return Array.Empty<{{ .EntityName }}>();
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntitiesByIds<{{ .EntityName }}, {{ .EntityName }}DAL, {{ .IDProperty.Type | toJson }}>(
+            EntityCacheInfo,
+            ids.Distinct().ToList(),
+            {{ .EntityName }}DAL.{{ .DALName }}
+        ).ToList();
+    }
+{{ else }}
+    {{ .Visibility | toJson }} static ICollection<{{ .EntityName }}> {{ .Name }}(ICollection<{{ .IDProperty.Type | toJson }}> ids)
+    {
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.MultiGetEntity<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}DAL, {{ .EntityName }}>(
+            ids,
+            EntityCacheInfo,
+            {{ .EntityName }}DAL.{{ .DALName }}
+        ).ToList();
+    }
+{{ end }}
+{{ end }}

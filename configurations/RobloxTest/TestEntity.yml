@@ -1,0 +1,143 @@
+name: Test
+
+database: TestDatabase
+table: Tests
+
+dal_namespace: Roblox.Mssql.Tests.DAL
+
+version: 1
+
+id: 
+  type: int
+
+remote_cacheable: 
+  memcached_group_setting: Roblox.TestMigrationSettings.TestMigrationSettings.RemoteCacheableSettings
+
+cacheability_settings:
+  is_null_cacheable: false
+
+properties:
+  - name: Name
+    type: string
+    nullable: false
+  - name: Description
+    type: string
+    nullable: true
+    read_only: false
+  - name: AccountID
+    type: long
+    nullable: false
+    read_only: false
+    #foreign_key: "[RobloxAccounts].[dbo].[Accounts].[ID]"
+  - name: TestEnumID
+    type: byte
+    nullable: false
+    read_only: false
+    foreign_key: "[dbo].[TestEnums].[ID]"
+  - name: IsActive
+    type: bool
+    nullable: false
+    read_only: false
+  - name: RawHash
+    type: byte_array
+    read_only: false
+    length: 64
+  - name: TestDate
+    type: DateTime
+    nullable: false
+    is_utc: true
+  - name: Created
+    type: DateTime
+    nullable: false
+  - name: Updated
+    type: DateTime
+    nullable: false
+  
+
+generate_must_get: true
+generate_create_new: true
+
+methods:
+  - name: GetByName
+    type: Lookup
+    parameters:
+      - name: name
+        type: string
+  - name: GetActiveByName
+    stored_procedure: GetActiveTestByName
+    type: Lookup
+    passive_properties:
+      - name: IsActive
+        value: true
+      - name: TestEnumID
+        value: 1
+    parameters:
+      - name: name
+        type: string
+  - name: GetByAccountIDAndCreatedAndName
+    type: Lookup
+    parameters:
+      - name: accountID
+        type: int
+      - name: created
+        type: DateTime
+      - name: name
+        type: string
+  - name: GetAllPaged
+    type: GetCollectionPaged
+  - name: GetByNamePaged
+    type: GetCollectionPaged
+    parameters:
+      - name: created
+        type: DateTime
+  - name: MultiGet
+    type: MultiGet
+  - name: GetAll
+    type: GetCollection
+  - name: GetTotalNumberOfTests
+    type: GetCount
+  - name: GetTotalNumberOfTestsByCreated
+    type: GetCount
+    parameters:
+      - name: created
+        type: DateTime
+  - name: GetTotalNumberOfTestsByAccountIDAndCreatedAndName
+    type: GetCount
+    parameters:
+      - name: accountID
+        type: int
+      - name: created
+        type: DateTime
+      - name: name
+        type: string
+  - name: GetAllByCreated
+    type: GetCollection
+    parameters:
+      - name: created
+        type: DateTime
+  - name: GetOrCreate
+    type: GetOrCreate
+    parameters:
+      - name: name
+        type: string
+      - name: accountID
+        type: int
+      - name: testEnumID
+        type: byte
+
+  - name: GetByAccountIDPaged
+    type: GetCollectionExclusive
+    parameters:
+      - name: accountID
+        type: int
+
+  - name: GetByAccountIDPaged
+    type: GetCollectionExclusive
+    exclusive_start_parameters:
+      - name: testDate
+        type: DateTime
+        nullable: true
+        is_utc: true
+    parameters:
+      - name: accountID
+        type: int

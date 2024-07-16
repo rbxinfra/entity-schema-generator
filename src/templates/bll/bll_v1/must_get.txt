@@ -1,0 +1,10 @@
+{{ define "MustGet" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .EntityName }} {{ .Name }}({{ .ConstructedStringParameters }})
+    {
+        var entity = {{ .DependentMethod }}({{ .ConstructedParameters }});
+        if (entity == null) throw new DataIntegrityException("Unable to load {{ .EntityName }}");
+{{ getRequiredWhitespaceMarker }}
+        return entity;
+    }
+{{ end }}

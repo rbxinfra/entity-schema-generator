@@ -1,0 +1,20 @@
+{{ define "Lookup" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static {{ .EntityName }} {{ .Name }}({{ .ConstructedStringParameters }})
+    {
+        {{ if .RemoteCacheable }}
+        return EntityHelper.GetEntityByLookupWithRemoteCache<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}DAL, {{ .EntityName }}>(
+            EntityCacheInfo,
+            {{ .LookupKey }},
+            () => {{ .EntityName }}DAL.{{ .DALName }}({{ .ConstructedParameters }}),
+            Get
+        );
+        {{ else }}
+        return EntityHelper.GetEntityByLookup<{{ .IDProperty.Type | toJson }}, {{ .EntityName }}DAL, {{ .EntityName }}>(
+            EntityCacheInfo,
+            {{ .LookupKey }},
+            () => {{ .EntityName }}DAL.{{ .DALName }}({{ .ConstructedParameters }})
+        );
+        {{ end }}
+    }
+{{ end }}

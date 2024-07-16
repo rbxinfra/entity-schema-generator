@@ -1,0 +1,383 @@
+USE [master]
+GO
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = N'{{ .Name }}')
+BEGIN
+CREATE DATABASE [{{ .Name }}]{{ if .DatabaseSharding }} ON  PRIMARY
+{{ range $i := loop 1 (derefInt .DatabaseSharding.ShardCount) }}
+{{ if (deref $.DatabaseSharding.IsWindows) }}
+( NAME = N'{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}', FILENAME = N'C:\Data\{{ $.Name }}\{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}.mdf' , SIZE = {{ $.DatabaseSharding.InitialSize }}, MAXSIZE = {{ $.DatabaseSharding.MaximumSize }}, FILEGROWTH = {{ $.DatabaseSharding.GrowthSize }} ){{ if ne $i (derefInt $.DatabaseSharding.ShardCount) }},{{ end }}
+{{ else }}
+( NAME = N'{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}', FILENAME = N'/data/{{ $.Name }}/{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}.mdf' , SIZE = {{ $.DatabaseSharding.InitialSize }}, MAXSIZE = {{ $.DatabaseSharding.MaximumSize }}, FILEGROWTH = {{ $.DatabaseSharding.GrowthSize }} ){{ if ne $i (derefInt $.DatabaseSharding.ShardCount) }},{{ end }}
+{{ end }}
+{{ end }}
+ LOG ON
+{{ range $i := loop 1 (derefInt .DatabaseSharding.ShardCount)  }}
+{{ if (deref $.DatabaseSharding.IsWindows) }}
+( NAME = N'{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}_log', FILENAME = N'C:\Roblox\Logs\{{ $.Name }}\{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}_log.ldf' , SIZE = {{ $.DatabaseSharding.InitialSize }}, MAXSIZE = {{ $.DatabaseSharding.MaximumSize }}, FILEGROWTH = {{ $.DatabaseSharding.GrowthSize }} ){{ if ne $i (derefInt $.DatabaseSharding.ShardCount) }},{{ end }}
+{{ else }}
+( NAME = N'{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}_log', FILENAME = N'/logs/{{ $.Name }}/{{ $.Name }}{{ if ne $i 1 }}{{ $i }}{{ end }}_log.ldf' , SIZE = {{ $.DatabaseSharding.InitialSize }}, MAXSIZE = {{ $.DatabaseSharding.MaximumSize }}, FILEGROWTH = {{ $.DatabaseSharding.GrowthSize }} ){{ if ne $i (derefInt $.DatabaseSharding.ShardCount) }},{{ end }}
+{{ end }}
+{{ end }}
+{{ end }}
+END
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET COMPATIBILITY_LEVEL = 100
+GO
+{{ getRequiredWhitespaceMarker }}
+IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
+begin
+EXEC [{{ .Name }}].[dbo].[sp_fulltext_database] @action = 'enable'
+end
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET ANSI_NULL_DEFAULT OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET ANSI_NULLS OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET ANSI_PADDING OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET ANSI_WARNINGS OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET ARITHABORT OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET AUTO_CLOSE OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET AUTO_CREATE_STATISTICS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET AUTO_SHRINK OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET AUTO_UPDATE_STATISTICS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET CURSOR_CLOSE_ON_COMMIT OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET CURSOR_DEFAULT  GLOBAL
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET CONCAT_NULL_YIELDS_NULL OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET NUMERIC_ROUNDABORT OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET QUOTED_IDENTIFIER OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET RECURSIVE_TRIGGERS OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET  DISABLE_BROKER
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET AUTO_UPDATE_STATISTICS_ASYNC ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET DATE_CORRELATION_OPTIMIZATION OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET TRUSTWORTHY OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET ALLOW_SNAPSHOT_ISOLATION OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET PARAMETERIZATION SIMPLE
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET READ_COMMITTED_SNAPSHOT OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET HONOR_BROKER_PRIORITY OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET  READ_WRITE
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET RECOVERY FULL
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET  MULTI_USER
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET PAGE_VERIFY CHECKSUM
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER DATABASE [{{ .Name }}] SET DB_CHAINING OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+USE [{{ .Name }}]
+GO
+{{ getRequiredWhitespaceMarker }}
+{{ range .Entities }}
+{{ $entity := . }}
+{{ getRequiredWhitespaceMarker }}
+/****** Begin {{ .EntityName }} ******/
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}]') AND type in (N'U'))
+BEGIN
+CREATE TABLE [dbo].[{{ .Table }}](
+	[{{ .IDProperty.Name }}] [{{ .IDProperty.SqlDbType | toJson | toLower }}] IDENTITY(1,1) NOT FOR REPLICATION NOT NULL,
+{{ range .Properties }}
+{{ if or (eq .SqlDbType VarChar) (eq .SqlDbType NVarChar) }}
+    [{{ .Name }}] [{{ .SqlDbType | toJson | toLower }}]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if (deref .Nullable) }} NULL{{ else }} NOT NULL{{ end }},
+{{ else if eq .SqlDbType Binary }}
+{{ if not (deref .IsVarBinary) }}
+    [{{ .Name }}] [{{ .SqlDbType | toJson | toLower }}]({{ .Length }}){{ if (deref .Nullable) }} NULL{{ else }} NOT NULL{{ end }},
+{{ else }}
+    [{{ .Name }}] [varbinary]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if (deref .Nullable) }} NULL{{ else }} NOT NULL{{ end }},
+{{ end }}
+{{ else }}
+    [{{ .Name }}] [{{ .SqlDbType | toJson | toLower }}]{{ if (deref .Nullable) }} NULL{{ else }} NOT NULL{{ end }},
+{{ end }}
+{{ end }}
+ CONSTRAINT [PK_{{ .Table }}] PRIMARY KEY CLUSTERED
+(
+    [{{ .IDProperty.Name }}] ASC
+) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+)
+ON [PRIMARY]
+END
+{{ getRequiredWhitespaceMarker }}
+{{ range .Properties }}
+{{ if .ForeignKey }}
+IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[{{ .ConstructedForeignKeyConstraintKey }}]') AND parent_object_id = OBJECT_ID(N'[dbo].[{{ $entity.Table }}]'))
+ALTER TABLE [dbo].[{{ $entity.Table }}] 
+WITH CHECK ADD CONSTRAINT [{{ .ConstructedForeignKeyConstraintKey }}] FOREIGN KEY ([{{ .Name }}])
+REFERENCES {{ .ConstructedForeignKey }}
+IF EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'[dbo].[{{ .ConstructedForeignKeyConstraintKey }}]') AND parent_object_id = OBJECT_ID(N'[dbo].[{{ $entity.Table }}]'))
+ALTER TABLE [dbo].[{{ $entity.Table }}] CHECK CONSTRAINT [{{ .ConstructedForeignKeyConstraintKey }}]
+{{ getRequiredWhitespaceMarker }}
+{{ end }}
+{{ end }}
+/****** End {{ .EntityName }} ******/
+{{ end }}
+{{ getRequiredWhitespaceMarker }}
+{{ if .DataTables }}
+/****** Begin Data Tables ******/
+{{ range .DataTables }}
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.types WHERE user_type_id = TYPE_ID(N'[dbo].[{{ . | toJson }}List]') AND is_table_type = 1)
+BEGIN
+
+CREATE TYPE [dbo].[{{ . | toJson }}List] AS TABLE(
+	[ID] [{{ . | toJson | toLower }}] NOT NULL,
+	PRIMARY KEY CLUSTERED 
+(
+	[ID] ASC
+)WITH (IGNORE_DUP_KEY = OFF)
+)
+{{ getRequiredWhitespaceMarker }}
+END
+{{ end }}
+{{ getRequiredWhitespaceMarker }}
+/****** End Data Tables ******/
+{{ end }}
+{{ getRequiredWhitespaceMarker }}
+{{ range .Entities }}
+{{ $entity := . }}
+/****** Begin {{ .EntityName }} ******/
+{{ getRequiredWhitespaceMarker }}
+/* Standard Insertion */
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_Insert{{ .EntityName }}]') AND type in (N'P', N'PC'))
+BEGIN
+	EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_Insert{{ .EntityName }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_Insert{{ .EntityName }}]
+(
+	@{{ .IDProperty.Name }} [{{ .IDProperty.SqlDbType | toJson | toLower }}] OUTPUT,
+{{ range $i, $property := $entity.Properties }}
+    {{ if or (eq .SqlDbType VarChar) (eq .SqlDbType NVarChar) }}
+    @{{ .Name }} [{{ .SqlDbType | toJson | toLower }}]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ else if eq .SqlDbType Binary }}
+    {{ if not (deref .IsVarBinary) }}
+    @{{ .Name }} [{{ .SqlDbType | toJson | toLower }}]({{ .Length }}){{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ else }}
+    @{{ .Name }} [varbinary]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ end }}
+    {{ else }}
+    @{{ .Name }} [{{ .SqlDbType | toJson | toLower }}]{{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ end }}
+{{ end }}
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+INSERT INTO
+	[{{ $entity.Table }}]
+(
+{{ range $i, $property := $entity.Properties }}
+[{{ .Name }}]{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+{{ end }}
+)
+VALUES
+(
+{{ range $i, $property := $entity.Properties }}
+@{{ .Name }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+{{ end }}
+)
+{{ getRequiredWhitespaceMarker }}
+SET @{{ .IDProperty.Name }} = SCOPE_IDENTITY();
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ getRequiredWhitespaceMarker }}
+/* Standard Update */
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_Update{{ .EntityName }}By{{ .IDProperty.Name }}]') AND type in (N'P', N'PC'))
+BEGIN
+    EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_Update{{ .EntityName }}By{{ .IDProperty.Name }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_Update{{ .EntityName }}By{{ .IDProperty.Name }}]
+(
+    @{{ .IDProperty.Name }} [{{ .IDProperty.SqlDbType | toJson | toLower }}],
+{{ range $i, $property := $entity.Properties }}
+    {{ if or (eq .SqlDbType VarChar) (eq .SqlDbType NVarChar) }}
+    @{{ .Name }} [{{ .SqlDbType | toJson | toLower }}]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ else if eq .SqlDbType Binary }}
+    {{ if not (deref .IsVarBinary) }}
+    @{{ .Name }} [{{ .SqlDbType | toJson | toLower }}]({{ .Length }}){{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ else }}
+    @{{ .Name }} [varbinary]({{ if .Length }}{{ .Length }}{{ else }}MAX{{ end }}){{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ end }}
+    {{ else }}
+    @{{ .Name }} [{{ .SqlDbType | toJson | toLower }}]{{ if (deref .Nullable) }} NULL{{ end }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+    {{ end }}
+{{ end }}
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+UPDATE
+    [{{ $entity.Table }}]
+SET
+{{ range $i, $property := $entity.Properties }}
+[{{ .Name }}] = @{{ .Name }}{{ if ne $i (sub (len $entity.Properties) 1) }},{{ end }}
+{{ end }}
+WHERE
+    ([{{ .IDProperty.Name }}] = @{{ .IDProperty.Name }})
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ getRequiredWhitespaceMarker }}
+/* Standard Deletion */
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_Delete{{ .EntityName }}By{{ .IDProperty.Name }}]') AND type in (N'P', N'PC'))
+BEGIN
+    EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_Delete{{ .EntityName }}By{{ .IDProperty.Name }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_Delete{{ .EntityName }}By{{ .IDProperty.Name }}]
+(
+    @{{ .IDProperty.Name }} [{{ .IDProperty.SqlDbType | toJson | toLower }}]
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+DELETE FROM
+    [{{ $entity.Table }}]
+WHERE
+    ([{{ .IDProperty.Name }}] = @{{ .IDProperty.Name }})
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ getRequiredWhitespaceMarker }}
+/* Standard Get-By-ID */
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_Get{{ .EntityName }}By{{ .IDProperty.Name }}]') AND type in (N'P', N'PC'))
+BEGIN
+    EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_Get{{ .EntityName }}By{{ .IDProperty.Name }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER OFF
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_Get{{ .EntityName }}By{{ .IDProperty.Name }}]
+(
+    @{{ .IDProperty.Name }} [{{ .IDProperty.SqlDbType | toJson | toLower }}]
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+SELECT
+    [{{ $entity.IDProperty.Name }}]{{ if $entity.Properties }},{{ end }}
+{{ range $i, $property := $entity.Properties }}
+    {{ if ne $i 0 }},{{ end }}[{{ .Name }}]
+{{ end }}
+FROM
+    [{{ $entity.Table }}]
+WHERE
+    ([{{ .IDProperty.Name }}] = @{{ .IDProperty.Name }})
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ getRequiredWhitespaceMarker }}
+{{ range .Methods }}
+{{ if eq .Type Lookup }}
+    {{ template "Lookup" . }}
+{{ else if eq .Type GetOrCreate }}
+    {{ template "GetOrCreate" . }}
+{{ else if eq .Type GetCollection }}
+    {{ template "GetCollection" . }}
+{{ else if eq .Type GetCollectionPaged }}
+    {{ template "GetCollectionPaged" . }}
+{{ else if eq .Type GetCollectionExclusive }}
+    {{ template "GetCollectionExclusive" . }}
+{{ else if eq .Type GetCount }}
+    {{ template "GetCount" . }}
+{{ else if eq .Type MultiGet }}
+    {{ template "MultiGet" . }}
+{{ end }}
+{{ end }}
+/********** End {{ .EntityName }} **********/
+{{ end }}

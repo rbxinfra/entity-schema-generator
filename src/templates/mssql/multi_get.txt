@@ -1,0 +1,37 @@
+{{ define "MultiGet" }}
+{{ getRequiredWhitespaceMarker }}
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[{{ .Table }}_{{ .StoredProcedure }}]') AND type in (N'P', N'PC'))
+BEGIN
+	EXEC('CREATE PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}] AS BEGIN SET NOCOUNT ON; END')
+END
+{{ getRequiredWhitespaceMarker }}
+SET ANSI_NULLS ON
+GO
+{{ getRequiredWhitespaceMarker }}
+SET QUOTED_IDENTIFIER ON
+GO
+{{ getRequiredWhitespaceMarker }}
+ALTER PROCEDURE [dbo].[{{ .Table }}_{{ .StoredProcedure }}]
+(
+    @{{ .IDProperty.Name | toPascalCase }}s [dbo].[{{ .IDProperty.SqlDbType | toJson }}List] READONLY
+)
+AS
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT ON
+{{ getRequiredWhitespaceMarker }}
+SELECT
+    [{{ .IDProperty.Name }}]
+{{ range $i, $property := .Properties }}
+    ,[{{ .Name }}]
+{{ end }}
+FROM
+	[{{ .Table }}]
+WHERE
+	([ID] IN (SELECT [ID] FROM @IDs))
+{{ getRequiredWhitespaceMarker }}
+SET NOCOUNT OFF
+{{ getRequiredWhitespaceMarker }}
+RETURN
+{{ getRequiredWhitespaceMarker }}
+GO
+{{ end }}

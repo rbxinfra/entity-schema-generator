@@ -1,0 +1,44 @@
+{{ define "GetCollectionExclusive" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .IDProperty.Type | toJson }}> {{ .DALName }}({{ .ConstructedStringParameters }}int count,{{ .ConstructedExclusiveStartStringParameters }} {{ .IDProperty.Type | toJson }}{{ if .ExclusiveStartParameters }}?{{ end }} exclusiveStart{{ .IDProperty.Name | normalizePascalParts }})
+    {
+        {{ range .Parameters }}
+        {{ if eq .Type string }}
+        if (string.IsNullOrEmpty({{ .Name }}))
+            throw new ArgumentException("Parameter '{{ .Name }}' cannot be null, empty or the default value.");
+        {{ else }}
+        if ({{ .Name }} == default({{ .Type | toJson }})) 
+            throw new ArgumentException("Parameter '{{ .Name }}' cannot be null, empty or the default value.");
+        {{ end }}
+        {{ end }}
+        if (count < 1)
+            throw new ApplicationException("Required value not specified: Count.");
+        {{ if .ExclusiveStartParameters }}
+        if (exclusiveStart{{ .IDProperty.Name | normalizePascalParts }} != null && exclusiveStart{{ .IDProperty.Name | normalizePascalParts }} < 0)
+        {{ else }}
+        if (exclusiveStart{{ .IDProperty.Name | normalizePascalParts }} < 0)
+        {{ end }}
+            throw new ApplicationException("Parameter 'ExclusiveStart{{ .IDProperty.Name }}' cannot be negative.");
+{{ getRequiredWhitespaceMarker }}
+        var queryParameters = new SqlParameter[]
+        {
+            {{ range .Parameters }}
+            new SqlParameter("@{{ .Name | toPascalCase }}", {{ .Name }}),
+            {{ end }}
+            new SqlParameter("@Count", count),
+            {{ range .ExclusiveStartParameters }}
+            new SqlParameter("@ExclusiveStart{{ .Name | toPascalCase }}", exclusiveStart{{ .Name | toPascalCase }} != null ? exclusiveStart{{ .Name | toPascalCase }}{{ if and (eq .Type DateTime) (deref .IsUTC) }}.Value.ToUniversalTime(){{ else }}.Value{{ end }} : DBNull.Value),
+            {{ end }}
+            {{ if .ExclusiveStartParameters }}
+            new SqlParameter("@ExclusiveStart{{ .IDProperty.Name }}", exclusiveStart{{ .IDProperty.Name | normalizePascalParts }} != null ? exclusiveStart{{ .IDProperty.Name | normalizePascalParts }}.Value : DBNull.Value),
+            {{ else }}
+            new SqlParameter("@ExclusiveStart{{ .IDProperty.Name }}", exclusiveStart{{ .IDProperty.Name | normalizePascalParts }}),
+            {{ end }}
+        };
+{{ getRequiredWhitespaceMarker }}
+        return _Database.GetIDCollection<{{ .IDProperty.Type | toJson }}>(
+            "{{ .Table }}_{{ .StoredProcedure }}",
+            queryParameters
+        );
+    }
+{{ end }}

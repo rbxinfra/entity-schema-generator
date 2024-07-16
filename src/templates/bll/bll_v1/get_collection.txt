@@ -1,0 +1,15 @@
+{{ define "GetCollection" }}
+{{ getRequiredWhitespaceMarker }}
+    {{ .Visibility | toJson }} static ICollection<{{ .EntityName }}> {{ .Name }}({{ .ConstructedStringParameters }})
+    {
+        var collectionId = {{ .CollectionIdentifier }};
+{{ getRequiredWhitespaceMarker }}
+        return EntityHelper.GetEntityCollection<{{ .EntityName }}, {{ .IDProperty.Type | toJson }}>(
+            EntityCacheInfo,
+            {{ .CachePolicy }},
+            collectionId,
+            () => {{ .EntityName }}DAL.{{ .DALName }}({{ .ConstructedParameters}}),
+            Get
+        );
+    }
+{{ end }}
